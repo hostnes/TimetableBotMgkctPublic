@@ -166,5 +166,6 @@ async def class_schedule_task():
                         text += f'\nкаб: {i["cabinet"]}\n'
                 else:
                     text += '\nпар нет, иди расчилься'
+                await bot.send_message(chat_id=str(user['telegram_id']), text=text, parse_mode="Markdown")
         except:
             pass
