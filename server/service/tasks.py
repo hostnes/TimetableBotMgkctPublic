@@ -60,10 +60,7 @@ def week_task():
             elements[-1].screenshot(f'bot/data/{i}.png')
         except:
             pass
-             # await bot.send_message(chat_id='1044392516', text='ошибка в недельном расссписании')
-    driver.close()
     driver.quit()
-    # await bot.send_message(chat_id='1044392516', text='произошло изменение расписания на неделю')
 
 
 @periodic_task(run_every=(crontab(minute='*/10')), name='pars_html')
@@ -78,10 +75,9 @@ def pars_html():
         time.sleep(3)
         with open('bot/data/day.html', 'w') as file:
             file.write(driver.page_source)
+        driver.quit()
     except:
         pass
-    driver.close()
-    driver.quit()
     with open('bot/data/day.html') as file:
         src = file.read()
     soup = BeautifulSoup(src, 'lxml')

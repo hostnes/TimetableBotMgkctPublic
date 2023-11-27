@@ -340,7 +340,6 @@ async def update_week_lessons(message: types.Message):
                 await message.answer(i)
             except:
                 pass
-        driver.close()
         driver.quit()
     else:
         await message.answer('Access is denied')
