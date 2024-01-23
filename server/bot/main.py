@@ -8,7 +8,7 @@ from selenium.webdriver import DesiredCapabilities
 from selenium.webdriver.common.by import By
 
 from tier_state import InstallGroupState, SendMessage
-from connect_server import users_service
+from connect_server import db_service
 import datetime
 
 import time
@@ -45,6 +45,7 @@ number_week_days = {
 }
 
 groups = []
+
 with open('server/bot/data/day.html') as file:
     src = file.read()
 soup = BeautifulSoup(src, 'lxml')
@@ -52,17 +53,22 @@ group_lxml = soup.find('div', id="wrapperTables").find_all('div')
 for item in group_lxml[::2]:
     groups.append(item.text.strip().split(' ')[0])
 
-async def startup(_):
-    time.sleep(5)
-    users_service.check_connect()
+
+def get_data(message):
+    query_params = {'telegram_id': message.chat.id}
+    response = db_service.get_chats(query_params)
+    if len(response) == 0:
+        chat_data = {'title_group': message.chat.title,
+                     'telegram_id': message.chat.id}
+        response = db_service.post_chat(chat_data)
+        return [response]
+    else:
+        return response
 
 
-@dp.message_handler(commands=["start"])
-async def start(message: types.Message):
-    query_params = {'telegram_id': message.from_user.id}
-    user_response = users_service.get_users(query_params)
+def create_reply_kb(response):
     reply_kb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-    if len(user_response) == 0:
+    if response[0]['group_number'] == '':
         reply_kb.add(KeyboardButton("🍻 Установить группу 🍻"))
     else:
         pagination_buttons = []
@@ -73,169 +79,58 @@ async def start(message: types.Message):
         pagination_buttons_2.append(KeyboardButton("👞🔄👟 Изменить группу"))
         pagination_buttons_2.append(KeyboardButton("🗿Расписание звонков🗿"))
         reply_kb.row(*pagination_buttons_2)
-        if user_response[0]['is_sender'] == True:
+        if response[0]['is_sender'] == True:
             reply_kb.add(KeyboardButton("🔕 Отписаться от рассылки"))
         else:
-            reply_kb.add(KeyboardButton("🔔 Подписаться на расслыку"))
-    if len(user_response) != 1:
-        user_data = {'first_name': message.from_user.first_name,
-                     'telegram_id': message.from_user.id}
-        response = users_service.post_user(user_data)
-    await message.answer('Тыкай', reply_markup=reply_kb)
+            reply_kb.add(KeyboardButton("🔔 Подписаться на рассылку"))
+    return reply_kb
 
 
-@dp.message_handler(text='🪦Расписание на день🪦')
-async def day_lessons(message: types.Message):
-    query_params = {'telegram_id': message.from_user.id}
-    response = users_service.get_users(query_params)
-    group_number = str(response[0]['group_number'])
-    with open('server/bot/data/lessons.json') as file:
-        src = json.load(file)
-    group_data = []
-    for item in src:
-        for key, value in item.items():
-            if key == group_number:
-                group_data = value
-    text = ''
-    text += f'*Группа {group_number}*\n'
-    text += f"*{src[0]['week_day']} - {src[0]['day']}*\n"
-    if group_data[0]['number_lesson'] != None:
-        for i in group_data:
-            count = 0
-            text += f'\n*{i["number_lesson"]} пара*'
-            for lir in i["title"]:
-                if count == 0:
-                    text += '\n'
-                try:
-                    a = int(lir)
-                    if count != 0:
-                        text += '\n'
-                    text += str(a)
-                except:
-
-                    text += lir
-                count += 1
-            text += f'\nкаб: {i["cabinet"]}\n'
-    else:
-        text += '\nпар нет кумарим'
-    await message.answer(text, parse_mode="Markdown")
-
-
-@dp.message_handler(text='♿️Расписание на неделю♿')
-async def week_lessons(message: types.Message):
-    query_params = {'telegram_id': message.from_user.id}
-    response = users_service.get_users(query_params)
-    group_number = str(response[0]['group_number'])
-    await bot.send_photo(chat_id=message.chat.id, photo=open(f'server/bot/data/{group_number}.png', 'rb'))
-    # await bot.send_photo(chat_id=message.chat.id, photo=open(f'data/{group_number}.png', 'rb'))
-
-
-@dp.message_handler(text='👞🔄👟 Изменить группу')
-async def change_group(message: types.Message, state: FSMContext):
-    query_params = {'telegram_id': message.from_user.id}
-    response = users_service.get_users(query_params)
-    await state.update_data(user_id=response[0]['id'])
-    await state.update_data(is_sender=response[0]['is_sender'])
-
-    await message.answer('введите номер группы: ', reply_markup=types.ReplyKeyboardRemove())
+async def common_group_operation(message: types.Message, state: FSMContext):
+    await message.answer('Введите номер группы: ', reply_markup=types.ReplyKeyboardRemove())
     await state.set_state(InstallGroupState.get_group.state)
 
 
-@dp.message_handler(text='🍻 Установить группу 🍻')
-async def install_group(message: types.Message, state: FSMContext):
-    query_params = {'telegram_id': message.from_user.id}
-    response = users_service.get_users(query_params)
-    await state.update_data(user_id=response[0]['id'])
-    await message.answer('введите номер группы: ', reply_markup=types.ReplyKeyboardRemove())
-    await state.set_state(InstallGroupState.get_group.state)
+async def startup(_):
+    time.sleep(5)
+    db_service.check_connect()
 
 
-@dp.message_handler(state=InstallGroupState.get_group.state)
-async def get_group_for_install(message: types.Message, state: FSMContext):
-    query_params = {'telegram_id': message.from_user.id}
-    user_response = users_service.get_users(query_params)
-    data = await state.get_data()
-    reply_kb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-    pagination_buttons = []
-    pagination_buttons_2 = []
-    pagination_buttons.append(KeyboardButton("🪦Расписание на день🪦"))
-    pagination_buttons.append(KeyboardButton("♿️Расписание на неделю♿"))
-    reply_kb.row(*pagination_buttons)
-    pagination_buttons_2.append(KeyboardButton("👞🔄👟 Изменить группу"))
-    pagination_buttons_2.append(KeyboardButton("🗿Расписание звонков🗿"))
-    reply_kb.row(*pagination_buttons_2)
-    if user_response[0]['is_sender'] == True:
-        reply_kb.add(KeyboardButton("🔕 Отписаться от рассылки"))
+@dp.message_handler(commands=["start"])
+async def start(message: types.Message):
+    response = get_data(message)
+    reply_kb = create_reply_kb(response)
+    chat_member = await bot.get_chat_member(message.chat.id, bot.id)
+    if response[0]['telegram_id'][0] == '-':
+        if chat_member.status in ('administrator', 'creator'):
+            await message.answer('Тыкай', reply_markup=reply_kb)
+        else:
+            await message.answer('Для работы бота в беседе требуется дать ему права администратора.', reply_markup=reply_kb)
     else:
-        reply_kb.add(KeyboardButton("🔔 Подписаться на расслыку"))
-    if message.text in groups:
-        user_data = {'group_number': message.text}
-        response = users_service.patch_user(user_id=data['user_id'], user_data=user_data)
-        await message.answer('окэ', reply_markup=reply_kb)
-        await state.finish()
-    else:
-        await message.answer('введи норм группу э:')
-
-
-@dp.message_handler(text='🔔 Подписаться на расслыку')
-async def is_sender(message: types.Message):
-    pagination_buttons = []
-    pagination_buttons_2 = []
-    query_params = {'telegram_id': message.from_user.id}
-    response = users_service.get_users(query_params)
-    user_id = response[0]['id']
-    reply_kb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-    pagination_buttons.append(KeyboardButton("🪦Расписание на день🪦"))
-    pagination_buttons.append(KeyboardButton("♿️Расписание на неделю♿"))
-    reply_kb.row(*pagination_buttons)
-    pagination_buttons_2.append(KeyboardButton("👞🔄👟 Изменить группу"))
-    pagination_buttons_2.append(KeyboardButton("🗿Расписание звонков🗿"))
-    reply_kb.row(*pagination_buttons_2)
-    user_data = {'is_sender': True}
-    response = users_service.patch_user(user_id=user_id, user_data=user_data)
-    reply_kb.add(KeyboardButton("🔕 Отписаться от рассылки"))
-    await message.answer('Тыкай', reply_markup=reply_kb)
-
-
-@dp.message_handler(text='🔕 Отписаться от рассылки')
-async def is_sender(message: types.Message):
-    pagination_buttons = []
-    pagination_buttons_2 = []
-    query_params = {'telegram_id': message.from_user.id}
-    response = users_service.get_users(query_params)
-    user_id = response[0]['id']
-    reply_kb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-    pagination_buttons.append(KeyboardButton("🪦Расписание на день🪦"))
-    pagination_buttons.append(KeyboardButton("♿️Расписание на неделю♿"))
-    reply_kb.row(*pagination_buttons)
-    pagination_buttons_2.append(KeyboardButton("👞🔄👟 Изменить группу"))
-    pagination_buttons_2.append(KeyboardButton("🗿Расписание звонков🗿"))
-    reply_kb.row(*pagination_buttons_2)
-    user_data = {'is_sender': False}
-    reply_kb.add(KeyboardButton("🔔 Подписаться на расслыку"))
-    response = users_service.patch_user(user_data, user_id)
-    await message.answer('Тыкай', reply_markup=reply_kb)
-
-
-@dp.message_handler(text='🗿Расписание звонков🗿')
-async def install_group(message: types.Message, state: FSMContext):
-    await message.answer('🤹 ‍️БУДНИ 🤹️\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:55 - 12:40\n3. 13:00 - 13:45 | 13:55 - 14:40\n4. 14:50 - 15:35 | 15:45 - 16:30\n'
-                         '\n🏳️‍🌈 СУББОТА 🏳️‍🌈\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:50 - 12:35\n3. 12:50 - 13:35 | 13:45 - 14:30\n4. 14:40 - 15:25 | 15:35 - 16:20\n')
+        await message.answer('Тыкай', reply_markup=reply_kb)
 
 
 @dp.message_handler(commands=["info"])
 async def info(msg: types.Message):
-    users = users_service.get_all_users()
+    chats = db_service.get_chats()
+    users = []
+    groups = []
+    for chat in chats:
+        if chat['telegram_id'][0] == '':
+            users.append(chat)
+        else:
+            groups.append(chat)
     await msg.answer(f"Самый лучший бот, для самого лучшего коллджа МИРА 😈😈😈\n"
                      "Создатель: @hostnes\n"
-                     f"Количесто пользователей использующий бота: {int(len(users)) + 340}\n"
+                     f"Количесто пользователей использующий бота: {int(len(users))}\n"
+                     f"Количесто групп в которые используют бота: {int(len(groups))}\n"
                      "Проект на GitHub: https://github.com/hostnes/TimetableBotMgkctPublic\n"
                      "Конфигурация сервера: 3 ядра CPU, 3 гб памяти, 15 гб NVMe")
 
 
 @dp.message_handler(commands=["admin"])
 async def info(msg: types.Message):
-    if str(msg.from_user.id) == '1044392516':
+    if str(msg.chat.id) == '1044392516':
         reply_kb = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
         reply_kb.add(KeyboardButton("разослать сообщение"))
         reply_kb.add(KeyboardButton("обновить расписание на день"))
@@ -245,9 +140,128 @@ async def info(msg: types.Message):
         await msg.answer("Права к админке надо заслужить. хе")
 
 
+@dp.message_handler(text='👞🔄👟 Изменить группу')
+async def change_group(message: types.Message, state: FSMContext):
+    response = get_data(message)
+    if len(response) != 0:
+        await common_group_operation(message, state)
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
+
+@dp.message_handler(text='🍻 Установить группу 🍻')
+async def install_group(message: types.Message, state: FSMContext):
+    response = get_data(message)
+    if len(response) != 0:
+        await common_group_operation(message, state)
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
+@dp.message_handler(lambda message: True, state=InstallGroupState.get_group)
+async def get_group_for_install(message: types.Message, state: FSMContext):
+    if message.text in groups:
+        response = get_data(message)
+        db_data = {'group_number': message.text}
+        response = db_service.patch_chat(chat_id=response[0]['id'], chat_data=db_data)
+        reply_kb = create_reply_kb([response])
+        await message.answer('окэ', reply_markup=reply_kb)
+        await state.finish()
+    else:
+        await message.answer('введи норм группу э:')
+
+
+@dp.message_handler(text='🪦Расписание на день🪦')
+async def day_lessons(message: types.Message):
+    response = get_data(message)
+    if len(response) != 0:
+
+        group_number = str(response[0]['group_number'])
+        with open('server/bot/data/lessons.json') as file:
+            src = json.load(file)
+        group_data = []
+        for item in src:
+            for key, value in item.items():
+                if key == group_number:
+                    group_data = value
+        text = ''
+        text += f'*Группа {group_number}*\n'
+        text += f"*{src[0]['week_day']} - {src[0]['day']}*\n"
+        if group_data[0]['number_lesson'] != None:
+            for i in group_data:
+                count = 0
+                text += f'\n*{i["number_lesson"]} пара*'
+                for lir in i["title"]:
+                    if count == 0:
+                        text += '\n'
+                    try:
+                        a = int(lir)
+                        if count != 0:
+                            text += '\n'
+                        text += str(a)
+                    except:
+
+                        text += lir
+                    count += 1
+                text += f'\nкаб: {i["cabinet"]}\n'
+        else:
+            text += '\nпар нет кумарим'
+        await message.answer(text, parse_mode="Markdown")
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
+
+@dp.message_handler(text='♿️Расписание на неделю♿')
+async def week_lessons(message: types.Message):
+    response = get_data(message)
+    if len(response) != 0:
+        group_number = str(response[0]['group_number'])
+        await bot.send_photo(chat_id=message.chat.id, photo=open(f'server/bot/data/{group_number}.png', 'rb'))
+
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
+
+@dp.message_handler(text='🔔 Подписаться на рассылку')
+async def is_sender(message: types.Message):
+    response = get_data(message)
+    if len(response) != 0:
+        obj_id = response[0]['id']
+        data = {'is_sender': True}
+        response = db_service.patch_chat(chat_id=obj_id, chat_data=data)
+        reply_kb = create_reply_kb([response])
+        await message.answer('Тыкай', reply_markup=reply_kb)
+
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
+
+@dp.message_handler(text='🔕 Отписаться от рассылки')
+async def is_sender(message: types.Message):
+    response = get_data(message)
+    if len(response) != 0:
+        obj_id = response[0]['id']
+        data = {'is_sender': False}
+        response = db_service.patch_chat(chat_id=obj_id, chat_data=data)
+        reply_kb = create_reply_kb([response])
+        await message.answer('Тыкай', reply_markup=reply_kb)
+
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
+
+@dp.message_handler(text='🗿Расписание звонков🗿')
+async def install_group(message: types.Message):
+    response = get_data(message)
+    if len(response) != 0:
+        await message.answer('🤹 ‍️БУДНИ 🤹️\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:55 - 12:40\n3. 13:00 - 13:45 | 13:55 - 14:40\n4. 14:50 - 15:35 | 15:45 - 16:30\n'
+                            '\n🏳️‍🌈 СУББОТА 🏳️‍🌈\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:50 - 12:35\n3. 12:50 - 13:35 | 13:45 - 14:30\n4. 14:40 - 15:25 | 15:35 - 16:20\n')
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
+
 @dp.message_handler(text='обновить расписание на день')
 async def update_day_lessons(message: types.Message):
-    if str(message.from_user.id) == '1044392516':
+    if str(message.chat.id) == '1044392516':
         await message.answer('start')
         groups = []
         data = []
@@ -317,7 +331,7 @@ async def update_day_lessons(message: types.Message):
 
 @dp.message_handler(text='обновить расписание на неделю')
 async def update_week_lessons(message: types.Message):
-    if str(message.from_user.id) == '1044392516':
+    if str(message.chat.id) == '1044392516':
         await message.answer('start')
         groups = []
         with open('server/bot/data/day.html') as file:
@@ -347,7 +361,7 @@ async def update_week_lessons(message: types.Message):
 
 @dp.message_handler(text='разослать сообщение')
 async def send_all(message: types.Message, state: FSMContext):
-    if str(message.from_user.id) == '1044392516':
+    if str(message.chat.id) == '1044392516':
         await message.answer("Введи сообщение: ")
         await state.set_state(SendMessage.get_message.state)
     else:
@@ -355,9 +369,9 @@ async def send_all(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=SendMessage)
-async def get_group_for_install(message: types.Message, state: FSMContext):
+async def send_message(message: types.Message, state: FSMContext):
     await message.answer('start')
-    users = users_service.get_all_users()
+    users = db_service.get_all_users()
     for i in users:
         try:
             await bot.send_message(chat_id=str(i['telegram_id']), text=message.text)

@@ -1,9 +1,10 @@
 from rest_framework import serializers
-from service.models import User
+from service.models import Chat
 
 
-class UserSerializers(serializers.ModelSerializer):
+class ChatSerializers(serializers.ModelSerializer):
 
     class Meta:
-        model = User
+        model = Chat
         fields = '__all__'
+

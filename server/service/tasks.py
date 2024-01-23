@@ -37,7 +37,7 @@ number_week_days = {
 }
 
 
-@periodic_task(run_every=(crontab(hour='*/6')), name='week_task')
+@periodic_task(run_every=(crontab(hour='14', min='10')), name='week_task')
 def week_task():
     print('start')
     groups = []
@@ -54,7 +54,7 @@ def week_task():
             driver.get(url=f'https://mgkct.minskedu.gov.by/персоналии/учащимся/расписание-занятий-на-неделю?group={i}')
             with open('service/templates/week.html', 'w') as file:
                 file.write(driver.page_source)
-            driver.get(url=f'http://web-app:8000/api/week/')
+            driver.get(url=f"http://{os.environ['WEB_APP_HOST']}:8000/api/week/")
             driver.set_window_size(1900, 920)
             elements = driver.find_elements(By.CLASS_NAME, 'content')
             elements[-1].screenshot(f'bot/data/{i}.png')
@@ -75,9 +75,10 @@ def pars_html():
         time.sleep(3)
         with open('bot/data/day.html', 'w') as file:
             file.write(driver.page_source)
-        driver.quit()
     except:
         pass
+    finally:
+        driver.quit()
     with open('bot/data/day.html') as file:
         src = file.read()
     soup = BeautifulSoup(src, 'lxml')
@@ -129,11 +130,11 @@ def pars_html():
 
 
 async def class_schedule_task():
-    users = requests.get(f"http://{os.environ['WEB_APP_HOST']}:8000/api/users/")
-    for user in users.json():
+    chats = requests.get(f"http://{os.environ['WEB_APP_HOST']}:8000/api/chats/")
+    for chat in chats.json():
         try:
-            if user['is_sender'] == True:
-                group_number = str(user['group_number'])
+            if chat['is_sender'] == True:
+                group_number = str(chats['group_number'])
                 with open('bot/data/lessons.json') as file:
                     src = json.load(file)
                 group_data = []
@@ -162,6 +163,6 @@ async def class_schedule_task():
                         text += f'\nкаб: {i["cabinet"]}\n'
                 else:
                     text += '\nпар нет, иди расчилься'
-                await bot.send_message(chat_id=str(user['telegram_id']), text=text, parse_mode="Markdown")
+                await bot.send_message(chat_id=str(chats['telegram_id']), text=text, parse_mode="Markdown")
         except:
             pass

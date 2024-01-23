@@ -1,12 +1,12 @@
-from django.urls import path, include
+from django.urls import path
 
-from .views import health_check, UserList, UserRetrieve, week
+from .views import health_check, ChatList, ChatRetrieve, week
 
 urlpatterns = [
     path('ping/', health_check),
 
-    path('users/', UserList.as_view()),
-    path('user/<int:pk>/', UserRetrieve.as_view()),
+    path('chats/', ChatList.as_view()),
+    path('chat/<int:pk>/', ChatRetrieve.as_view()),
 
     path('week/', week),
 ]
