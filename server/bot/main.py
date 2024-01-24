@@ -88,7 +88,7 @@ def create_reply_kb(response):
 
 
 async def check_admin(message):
-    if message.chat.id['0'] == "-":
+    if str(message.chat.id['0']) == "-":
         chat_member = await bot.get_chat_member(message.chat.id, bot.id)
         if chat_member.status in ('administrator', 'creator'):
             return True
