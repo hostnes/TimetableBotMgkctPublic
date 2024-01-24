@@ -152,16 +152,19 @@ async def info(msg: types.Message):
 
 @dp.message_handler(text='👞🔄👟 Изменить группу')
 async def change_group(message: types.Message, state: FSMContext):
-    response = get_data(message)
-    if len(response) != 0:
-        await common_group_operation(message, state)
+    if await check_admin(message):
+        response = get_data(message)
+        if len(response) != 0:
+            await common_group_operation(message, state)
+        else:
+            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
     else:
-        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+        await message.answer("Права дайте боту, а")
 
 
 @dp.message_handler(text='🍻 Установить группу 🍻')
 async def install_group(message: types.Message, state: FSMContext):
-    if asyncio.run(check_admin(message)):
+    if await check_admin(message):
         response = get_data(message)
         if len(response) != 0:
             await common_group_operation(message, state)
@@ -172,7 +175,7 @@ async def install_group(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: True, state=InstallGroupState.get_group)
 async def get_group_for_install(message: types.Message, state: FSMContext):
-    if asyncio.run(check_admin(message)):
+    if await check_admin(message):
         response = get_data(message)
         if len(response) != 0:
             if message.text in groups:
@@ -191,7 +194,7 @@ async def get_group_for_install(message: types.Message, state: FSMContext):
 
 @dp.message_handler(text='🪦Расписание на день🪦')
 async def day_lessons(message: types.Message):
-    if asyncio.run(check_admin(message)):
+    if await check_admin(message):
         response = get_data(message)
         if len(response) != 0:
             group_number = str(response[0]['group_number'])
@@ -233,7 +236,7 @@ async def day_lessons(message: types.Message):
 
 @dp.message_handler(text='♿️Расписание на неделю♿')
 async def week_lessons(message: types.Message):
-    if asyncio.run(check_admin(message)):
+    if await check_admin(message):
         response = get_data(message)
         if len(response) != 0:
             group_number = str(response[0]['group_number'])
@@ -246,7 +249,7 @@ async def week_lessons(message: types.Message):
 
 @dp.message_handler(text='🔔 Подписаться на рассылку')
 async def is_sender(message: types.Message):
-    if asyncio.run(check_admin(message)):
+    if await check_admin(message):
         response = get_data(message)
         if len(response) != 0:
             obj_id = response[0]['id']
@@ -260,7 +263,7 @@ async def is_sender(message: types.Message):
 
 @dp.message_handler(text='🔕 Отписаться от рассылки')
 async def is_sender(message: types.Message):
-    if asyncio.run(check_admin(message)):
+    if await check_admin(message):
         response = get_data(message)
         if len(response) != 0:
             obj_id = response[0]['id']
@@ -277,12 +280,15 @@ async def is_sender(message: types.Message):
 
 @dp.message_handler(text='🗿Расписание звонков🗿')
 async def install_group(message: types.Message):
-    response = get_data(message)
-    if len(response) != 0:
-        await message.answer('🤹 ‍️БУДНИ 🤹️\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:55 - 12:40\n3. 13:00 - 13:45 | 13:55 - 14:40\n4. 14:50 - 15:35 | 15:45 - 16:30\n'
-                            '\n🏳️‍🌈 СУББОТА 🏳️‍🌈\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:50 - 12:35\n3. 12:50 - 13:35 | 13:45 - 14:30\n4. 14:40 - 15:25 | 15:35 - 16:20\n')
+    if await check_admin(message):
+        response = get_data(message)
+        if len(response) != 0:
+            await message.answer('🤹 ‍️БУДНИ 🤹️\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:55 - 12:40\n3. 13:00 - 13:45 | 13:55 - 14:40\n4. 14:50 - 15:35 | 15:45 - 16:30\n'
+                                '\n🏳️‍🌈 СУББОТА 🏳️‍🌈\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:50 - 12:35\n3. 12:50 - 13:35 | 13:45 - 14:30\n4. 14:40 - 15:25 | 15:35 - 16:20\n')
+        else:
+            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
     else:
-        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+        await message.answer("Права дайте боту, а")
 
 
 @dp.message_handler(text='обновить расписание на день')
