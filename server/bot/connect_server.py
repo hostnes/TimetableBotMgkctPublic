@@ -1,10 +1,10 @@
 import requests
+import os
 
 
 class UsersService:
     limit = 5
-    # base_url = f"http://{os.environ['WEB_APP_HOST']}:8000/api/"
-    base_url = f"http://127.0.0.1:8000/api/"
+    base_url = f"http://{os.environ['WEB_APP_HOST']}:8000/api/"
 
     def check_connect(self):
         response = requests.get(f"{self.base_url}ping/")

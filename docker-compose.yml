@@ -4,13 +4,6 @@ services:
     image: redis:7.0.5-alpine
     hostname: redis
 
-  sqlite3:
-    image: nouchka/sqlite3:latest
-    stdin_open: true
-    tty: true
-    volumes:
-      - ./server/:/server/
-
   selenium:
     image: selenium/standalone-chrome:4.7.1-20221208
     hostname: selenium
@@ -31,7 +24,6 @@ services:
       sh -c "python server/manage.py runserver 0.0.0.0:8000"
     depends_on:
       - redis
-      - sqlite3
       - selenium
     environment:
       TZ: Europe/Moscow
