@@ -37,7 +37,7 @@ number_week_days = {
 }
 
 
-@periodic_task(run_every=(crontab(hour='14', min='10')), name='week_task')
+@periodic_task(run_every=(crontab(hour='14', minute='10')), name='week_task')
 def week_task():
     print('start')
     groups = []
