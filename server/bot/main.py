@@ -152,143 +152,142 @@ async def info(msg: types.Message):
 
 @dp.message_handler(text='👞🔄👟 Изменить группу')
 async def change_group(message: types.Message, state: FSMContext):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            await common_group_operation(message, state)
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
-    else:
+    if not await check_admin(message):
         await message.answer("Права дайте боту, а")
+        return
+    response = get_data(message)
+    if len(response) != 0:
+        await common_group_operation(message, state)
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
 
 
 @dp.message_handler(text='🍻 Установить группу 🍻')
 async def install_group(message: types.Message, state: FSMContext):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            await common_group_operation(message, state)
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
-    else:
+    if not await check_admin(message):
         await message.answer("Права дайте боту, а")
+        return
+    response = get_data(message)
+    if len(response) != 0:
+        await common_group_operation(message, state)
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
 
 @dp.message_handler(lambda message: True, state=InstallGroupState.get_group)
 async def get_group_for_install(message: types.Message, state: FSMContext):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            if message.text in groups:
-                db_data = {'group_number': message.text}
-                response = db_service.patch_chat(chat_id=response[0]['id'], chat_data=db_data)
-                reply_kb = create_reply_kb([response])
-                await message.answer('окэ', reply_markup=reply_kb)
-                await state.finish()
-            else:
-                await message.answer('введи норм группу э:')
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
-    else:
+    if not await check_admin(message):
         await message.answer("Права дайте боту, а")
+        return
+    response = get_data(message)
+    if len(response) != 0:
+        if message.text in groups:
+            db_data = {'group_number': message.text}
+            response = db_service.patch_chat(chat_id=response[0]['id'], chat_data=db_data)
+            reply_kb = create_reply_kb([response])
+            await message.answer('окэ', reply_markup=reply_kb)
+            await state.finish()
+        else:
+            await message.answer('введи норм группу э:')
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
 
 
 @dp.message_handler(text='🪦Расписание на день🪦')
 async def day_lessons(message: types.Message):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            group_number = str(response[0]['group_number'])
-            with open('server/bot/data/lessons.json') as file:
-                src = json.load(file)
-            group_data = []
-            for item in src:
-                for key, value in item.items():
-                    if key == group_number:
-                        group_data = value
-            text = ''
-            text += f'*Группа {group_number}*\n'
-            text += f"*{src[0]['week_day']} - {src[0]['day']}*\n"
-            if group_data[0]['number_lesson'] != None:
-                for i in group_data:
-                    count = 0
-                    text += f'\n*{i["number_lesson"]} пара*'
-                    for lir in i["title"]:
-                        if count == 0:
-                            text += '\n'
-                        try:
-                            a = int(lir)
-                            if count != 0:
-                                text += '\n'
-                            text += str(a)
-                        except:
-
-                            text += lir
-                        count += 1
-                    text += f'\nкаб: {i["cabinet"]}\n'
-            else:
-                text += '\nпар нет кумарим'
-            await message.answer(text, parse_mode="Markdown")
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
-    else:
+    if not await check_admin(message):
         await message.answer("Права дайте боту, а")
+        return
+    response = get_data(message)
+    if len(response) != 0:
+        group_number = str(response[0]['group_number'])
+        with open('server/bot/data/lessons.json') as file:
+            src = json.load(file)
+        group_data = []
+        for item in src:
+            for key, value in item.items():
+                if key == group_number:
+                    group_data = value
+        text = ''
+        text += f'*Группа {group_number}*\n'
+        text += f"*{src[0]['week_day']} - {src[0]['day']}*\n"
+        if group_data[0]['number_lesson'] != None:
+            for i in group_data:
+                count = 0
+                text += f'\n*{i["number_lesson"]} пара*'
+                for lir in i["title"]:
+                    if count == 0:
+                        text += '\n'
+                    try:
+                        a = int(lir)
+                        if count != 0:
+                            text += '\n'
+                        text += str(a)
+                    except:
+
+                        text += lir
+                    count += 1
+                text += f'\nкаб: {i["cabinet"]}\n'
+        else:
+            text += '\nпар нет кумарим'
+        await message.answer(text, parse_mode="Markdown")
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+
 
 
 @dp.message_handler(text='♿️Расписание на неделю♿')
 async def week_lessons(message: types.Message):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            group_number = str(response[0]['group_number'])
-            await bot.send_photo(chat_id=message.chat.id, photo=open(f'server/bot/data/{group_number}.png', 'rb'))
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
-    else:
+    if not await check_admin(message):
         await message.answer("Права дайте боту, а")
+        return
+    response = get_data(message)
+    if len(response) != 0:
+        group_number = str(response[0]['group_number'])
+        await bot.send_photo(chat_id=message.chat.id, photo=open(f'server/bot/data/{group_number}.png', 'rb'))
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
 
 
 @dp.message_handler(text='🔔 Подписаться на рассылку')
 async def is_sender(message: types.Message):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            obj_id = response[0]['id']
-            data = {'is_sender': True}
-            response = db_service.patch_chat(chat_id=obj_id, chat_data=data)
-            reply_kb = create_reply_kb([response])
-            await message.answer('Тыкай', reply_markup=reply_kb)
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
+    if not await check_admin(message):
+        await message.answer("Права дайте боту, а")
+        return
+    response = get_data(message)
+    if len(response) != 0:
+        obj_id = response[0]['id']
+        data = {'is_sender': True}
+        response = db_service.patch_chat(chat_id=obj_id, chat_data=data)
+        reply_kb = create_reply_kb([response])
+        await message.answer('Тыкай', reply_markup=reply_kb)
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
 
 
 @dp.message_handler(text='🔕 Отписаться от рассылки')
 async def is_sender(message: types.Message):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            obj_id = response[0]['id']
-            data = {'is_sender': False}
-            response = db_service.patch_chat(chat_id=obj_id, chat_data=data)
-            reply_kb = create_reply_kb([response])
-            await message.answer('Тыкай', reply_markup=reply_kb)
-
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
-    else:
+    if not await check_admin(message):
         await message.answer("Права дайте боту, а")
+        return
+    response = get_data(message)
+    if len(response) != 0:
+        obj_id = response[0]['id']
+        data = {'is_sender': False}
+        response = db_service.patch_chat(chat_id=obj_id, chat_data=data)
+        reply_kb = create_reply_kb([response])
+        await message.answer('Тыкай', reply_markup=reply_kb)
+
+    else:
+        await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
 
 
 @dp.message_handler(text='🗿Расписание звонков🗿')
 async def install_group(message: types.Message):
-    if await check_admin(message):
-        response = get_data(message)
-        if len(response) != 0:
-            await message.answer('🤹 ‍️БУДНИ 🤹️\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:55 - 12:40\n3. 13:00 - 13:45 | 13:55 - 14:40\n4. 14:50 - 15:35 | 15:45 - 16:30\n'
-                                '\n🏳️‍🌈 СУББОТА 🏳️‍🌈\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:50 - 12:35\n3. 12:50 - 13:35 | 13:45 - 14:30\n4. 14:40 - 15:25 | 15:35 - 16:20\n')
-        else:
-            await message.answer("Вышло обновление бота. пропишите /start для того чтобы продолжить.")
-    else:
-        await message.answer("Права дайте боту, а")
+    await message.answer('🤹 ‍️БУДНИ 🤹️\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:55 - 12:40\n3. 13:00 - 13:45 | 13:55 - 14:40\n4. 14:50 - 15:35 | 15:45 - 16:30\n'
+                        '\n🏳️‍🌈 СУББОТА 🏳️‍🌈\n1. 09:00 - 09:45 | 09:55 - 10:40\n2. 10:50 - 11:35 | 11:50 - 12:35\n3. 12:50 - 13:35 | 13:45 - 14:30\n4. 14:40 - 15:25 | 15:35 - 16:20\n')
 
 
 @dp.message_handler(text='обновить расписание на день')
